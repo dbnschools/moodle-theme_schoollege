@@ -23,5 +23,11 @@ SCHOOLLEGE FEATURES
 
 # Versions and Updates
 
+## Moodle 3.10 Schoollege Release 1.2
+* Fixed header area photo overlay display problems.  When default coursetilebg is used it will also be the default photo header image for consistency.  
+
+## Moodle 3.10 Schoollege Release 1.1
+* Changed behavior of the Course Settings Gear Drop Down.  It will now appear on the course main page as well as the module pages.  This icon is located on the course dashboard in Schoollege and would not appear for a user unless they were on the course homepage which is default Boost behavior.  We also added Course Modules as a page in which the course settings menu would appear since the course dashboard can be accessed from any page within a course.
+
 ## Moodle 3.10 Schoollege Initial Release 1
 * Brand new theme.

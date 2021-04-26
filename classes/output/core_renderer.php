@@ -39,7 +39,7 @@ use action_link;
 use single_button;
 use single_select;
 use url_select;
-
+use pix_icon;
 
 defined('MOODLE_INTERNAL') || die;
 
@@ -118,6 +118,98 @@ class core_renderer extends \theme_boost\output\core_renderer {
 
     public function edit_button(moodle_url $url) {
         return '';
+    }
+
+    //Make Settings Menu Drop down appear on course and module pages.
+    public function context_header_settings_menu() {
+        $context = $this->page->context;
+        $menu = new action_menu();
+
+        $items = $this->page->navbar->get_items();
+        $currentnode = end($items);
+
+        $showcoursemenu = false;
+        $showfrontpagemenu = false;
+        $showusermenu = false;
+
+        // We are on the course home page or course modules.  Schoollege changes here...
+        if ($context->contextlevel == CONTEXT_COURSE || $context->contextlevel == CONTEXT_MODULE) {
+            $showcoursemenu = true;
+        }
+
+        $courseformat = course_get_format($this->page->course);
+        // This is a single activity course format, always show the course menu on the activity main page.
+        if ($context->contextlevel == CONTEXT_MODULE &&
+                !$courseformat->has_view_page()) {
+
+            $this->page->navigation->initialise();
+            $activenode = $this->page->navigation->find_active_node();
+            // If the settings menu has been forced then show the menu.
+            if ($this->page->is_settings_menu_forced()) {
+                $showcoursemenu = true;
+            } else if (!empty($activenode) && ($activenode->type == navigation_node::TYPE_ACTIVITY ||
+                            $activenode->type == navigation_node::TYPE_RESOURCE)) {
+
+                // We only want to show the menu on the first page of the activity. This means
+                // the breadcrumb has no additional nodes.
+                if ($currentnode && ($currentnode->key == $activenode->key && $currentnode->type == $activenode->type)) {
+                    $showcoursemenu = true;
+                }
+            }
+        }
+
+        // This is the site front page.
+        if ($context->contextlevel == CONTEXT_COURSE &&
+                !empty($currentnode) &&
+                $currentnode->key === 'home') {
+            $showfrontpagemenu = true;
+        }
+
+        // This is the user profile page.
+        if ($context->contextlevel == CONTEXT_USER &&
+                !empty($currentnode) &&
+                ($currentnode->key === 'myprofile')) {
+            $showusermenu = true;
+        }
+
+        if ($showfrontpagemenu) {
+            $settingsnode = $this->page->settingsnav->find('frontpage', navigation_node::TYPE_SETTING);
+            if ($settingsnode) {
+                // Build an action menu based on the visible nodes from this navigation tree.
+                $skipped = $this->build_action_menu_from_navigation($menu, $settingsnode, false, true);
+
+                // We only add a list to the full settings menu if we didn't include every node in the short menu.
+                if ($skipped) {
+                    $text = get_string('morenavigationlinks');
+                    $url = new moodle_url('/course/admin.php', array('courseid' => $this->page->course->id));
+                    $link = new action_link($url, $text, null, null, new pix_icon('t/edit', $text));
+                    $menu->add_secondary_action($link);
+                }
+            }
+        } else if ($showcoursemenu) {
+            $settingsnode = $this->page->settingsnav->find('courseadmin', navigation_node::TYPE_COURSE);
+            if ($settingsnode) {
+                // Build an action menu based on the visible nodes from this navigation tree.
+                $skipped = $this->build_action_menu_from_navigation($menu, $settingsnode, false, true);
+
+                // We only add a list to the full settings menu if we didn't include every node in the short menu.
+                if ($skipped) {
+                    $text = get_string('morenavigationlinks');
+                    $url = new moodle_url('/course/admin.php', array('courseid' => $this->page->course->id));
+                    $link = new action_link($url, $text, null, null, new pix_icon('t/edit', $text));
+                    $menu->add_secondary_action($link);
+                }
+            }
+        } else if ($showusermenu) {
+            // Get the course admin node from the settings navigation.
+            $settingsnode = $this->page->settingsnav->find('useraccount', navigation_node::TYPE_CONTAINER);
+            if ($settingsnode) {
+                // Build an action menu based on the visible nodes from this navigation tree.
+                $this->build_action_menu_from_navigation($menu, $settingsnode);
+            }
+        }
+
+        return $this->render($menu);
     }
 
 
@@ -1084,13 +1176,19 @@ class core_renderer extends \theme_boost\output\core_renderer {
                 width: 100%; height: 100%;'
             ));
             $html .= html_writer::end_div(); // End withimage inline style div.
-        } else if (!$courseimage && isset($headerbg) && $COURSE->id <= 1 && $allowheader) {
+        } else if (!$courseimage && isset($headerbg) && $COURSE->id <= 1 && $allowheader ) {
             $html .= html_writer::start_div('customimage', array(
                 'style' => 'background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("' . $headerbgimgurl .  '"); background-size: cover; background-position:center;
                 width: 100%; height: 100%;'
             ));
             $html .= html_writer::end_div(); // End withoutimage inline style div.
-        } else if ($COURSE->id > 1 && $allowheader) {
+        } else if (!$courseimage && isset($coursetilebg) && $COURSE->id > 1 && $allowheader) {
+            $html .= html_writer::start_div('customimagetilebg', array(
+                'style' => 'background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("' . $coursetilebgimgurl .  '"); background-size: cover; background-position:center;
+                width: 100%; height: 100%;'
+            ));
+            $html .= html_writer::end_div(); // End withoutimage inline style div.
+        } else if ($COURSE->id > 1 && $allowheader ) {
             $html .= html_writer::start_div('default', array(
                 'style' => 'background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("' . $defaultimgurl . '"); background-size: cover; background-position:center;
                 width: 100%; height: 100%;'
@@ -1112,8 +1210,6 @@ class core_renderer extends \theme_boost\output\core_renderer {
 
         if (isset($coursetilebg)) {
             return $coursetilebg;
-        } else if (isset($headerbg)) {
-            return $headerbg;
         } else {
             return $defaultimgurl;
         }
